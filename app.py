@@ -5,8 +5,8 @@ from loader import dp, bot
 
 
 async def start_up():
-    with open('bot.log', 'a') as log_file:
-        log_file.write(f'\n========== New bot session {datetime.datetime.now()} ==========\n\n')
+    # with open('bot.log', 'a') as log_file:
+    #     log_file.write(f'\n========== New bot session {datetime.datetime.now()} ==========\n\n')
     print('Стартуем')
     await dp.start_polling(bot,
                            allowed_updates=[
