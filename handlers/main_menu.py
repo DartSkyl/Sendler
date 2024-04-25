@@ -1,13 +1,12 @@
 from loader import dp
-from keyboards import main_menu, back_button, cancel_button, check_data_keyboard
+from keyboards import main_menu, cancel_button, check_data_keyboard
 from states import AddingAccount
-from utils.account_model import Account, account_list
+from utils.account_model import Account, account_dict
 
 from aiogram.types import Message, FSInputFile, CallbackQuery
 from aiogram import F, html
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.exceptions import TelegramBadRequest
 
 from pyrogram.errors.exceptions.bad_request_400 import ApiIdInvalid
 from pyrogram.errors.exceptions.not_acceptable_406 import PhoneNumberInvalid
@@ -16,9 +15,9 @@ from pyrogram.errors.exceptions.not_acceptable_406 import PhoneNumberInvalid
 async def send_status_info(msg: Message):
     """Данная функция отправляет в чат сообщение с информацией
     о текущем статусе - сколько всего ботов подключено и сколько из них запущено"""
-    count_account = len(account_list)
+    count_account = len(account_dict)
     count_active_account = 0
-    for account in account_list:
+    for account in account_dict.values():
         if account.get_active():
             count_active_account += 1
     await msg.answer(text=f'Всего подключено аккаунтов: <b>{count_account}</b>\n'
@@ -115,11 +114,12 @@ async def auth_function(callback: CallbackQuery, state: FSMContext):
     )
 
     try:
+        await callback.message.answer(text='Сейчас вам придет код для авторизации на аккаунт, который вы добавляете!\n'
+                                           'Введите его:')
         # Ловим и сохраняем хэш кода авторизации для дальнейшего использования
         code_hash = await new_account.start_session()
         await state.update_data({'code_hash': code_hash, 'new_account': new_account})
-        await callback.message.answer(text='Сейчас вам придет код для авторизации на аккаунт, который вы добавляете!\n'
-                                           'Введите его:')
+
         await state.set_state(AddingAccount.code_input)
 
     except ApiIdInvalid:
@@ -137,8 +137,10 @@ async def auth_function(callback: CallbackQuery, state: FSMContext):
 async def auth_code_input(msg: Message, state: FSMContext):
     """Пользователь вводит код авторизации и здесь мы его ловим"""
     account_data = await state.get_data()
-    await account_data['new_account'].authorization_and_run(code_hash=account_data['code_hash'], code=str(msg.text))
-    account_list.append(account_data['new_account'])
+    await account_data['new_account'].authorization_and_start(code_hash=account_data['code_hash'], code=str(msg.text))
+
+    account_dict[account_data['name']] = account_data['new_account']
+
     await msg.answer(text='Аккаунт добавлен!')
     await send_status_info(msg=msg)
     await state.clear()
@@ -202,3 +204,10 @@ async def cancel_function(msg: Message, state: FSMContext):
     """Функция отмены"""
     await state.clear()
     await send_status_info(msg)
+
+
+@dp.message(Command('get_log'))
+async def get_bot_log(msg: Message):
+    """Команда выгружает в чат файл с логом бота"""
+    log_file = FSInputFile('bot.log')
+    await msg.answer_document(document=log_file)

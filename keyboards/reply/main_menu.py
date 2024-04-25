@@ -13,3 +13,19 @@ back_button = ReplyKeyboardMarkup(keyboard=[
 cancel_button = ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text='Отмена')]
 ], resize_keyboard=True)
+
+cancel_button_2 = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text='Отменить')]
+], resize_keyboard=True)
+
+file_adding = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text='Дальше'), KeyboardButton(text='Отменить')]
+], resize_keyboard=True)
+
+text_adding = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text='Готово'), KeyboardButton(text='Отменить')]
+], resize_keyboard=True)
+
+remove_message = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text='Удалить'), KeyboardButton(text='Назад')]
+], resize_keyboard=True, one_time_keyboard=True)

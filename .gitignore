@@ -2,3 +2,5 @@
 *.log
 venv
 *.session
+*.session-journal
+*.txt

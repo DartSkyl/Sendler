@@ -13,3 +13,17 @@ class AddingAccount(StatesGroup):
     change_api_hash = State()
     change_phone_number = State()
     code_input = State()
+
+
+class AccountSettings(StatesGroup):
+    """Стэйты для настройки аккаунтов"""
+    view_account = State()
+    put_chats = State()
+    chats_for_mailing = State()
+    msg_title = State()
+    msg_files = State()
+    msg_text = State()
+    msg_preview = State()
+    false_state = State()
+    preview_mess = State()
+
