@@ -22,8 +22,8 @@ def accounts_choice(acc_list: dict) -> InlineKeyboardMarkup:
 
 menu_for_account = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text='Вкл/Выкл', callback_data='switch')],
-    [InlineKeyboardButton(text='Добавить список чатов', callback_data='put_chats_list')],
-    [InlineKeyboardButton(text='Выбрать чаты для рассылки', callback_data='chats_for_mailing')],
+    [InlineKeyboardButton(text='Обновить список чатов', callback_data='put_chats_list')],
+    [InlineKeyboardButton(text='Настройки рассылки', callback_data='mailing_settings')],
     [InlineKeyboardButton(text='Сообщения для рассылки', callback_data='msg_for_mailing')]
 ])
 
@@ -33,13 +33,11 @@ action_with_messages = InlineKeyboardMarkup(inline_keyboard=[
 ])
 
 
-def chats_for_mailing_list(chats_dict: dict) -> InlineKeyboardMarkup:
-    """Создание клавиатуры со списком доступных чатов для рассылки"""
-    chats_keyboard = InlineKeyboardBuilder()
-    for chat_name, chat_id in chats_dict.items():
-        chats_keyboard.button(text=chat_name, callback_data=str(chat_id))
-    chats_keyboard.adjust(1)
-    return chats_keyboard.as_markup()
+mailing_sett = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text='Установить интервал рассылки', callback_data='interval')],
+    [InlineKeyboardButton(text='Добавить сообщение', callback_data='add_mess')],
+    [InlineKeyboardButton(text='Удалить сообщение', callback_data='del_mess')]
+])
 
 
 def messages_for_preview(mess_dict: dict) -> InlineKeyboardMarkup:
@@ -47,6 +45,15 @@ def messages_for_preview(mess_dict: dict) -> InlineKeyboardMarkup:
     mess_keyboard = InlineKeyboardBuilder()
     for mess in mess_dict.keys():
         mess_keyboard.button(text=mess, callback_data=f'mess_{mess}')
+    mess_keyboard.adjust(1)
+    return mess_keyboard.as_markup()
+
+
+def messages_for_removing(mess_set: set) -> InlineKeyboardMarkup:
+    """Создание клавиатуры для просмотра имеющихся сообщений"""
+    mess_keyboard = InlineKeyboardBuilder()
+    for mess in mess_set:
+        mess_keyboard.button(text=mess, callback_data=f'rem_{mess}')
     mess_keyboard.adjust(1)
     return mess_keyboard.as_markup()
 

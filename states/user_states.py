@@ -18,12 +18,16 @@ class AddingAccount(StatesGroup):
 class AccountSettings(StatesGroup):
     """Стэйты для настройки аккаунтов"""
     view_account = State()
+    choice_msg_action = State()
     put_chats = State()
-    chats_for_mailing = State()
+    mailing_settings = State()
     msg_title = State()
     msg_files = State()
     msg_text = State()
     msg_preview = State()
     false_state = State()
     preview_mess = State()
+    setup_interval = State()
+    setup_message = State()
+    delete_msg_from_settings = State()
 
