@@ -13,6 +13,7 @@ class AddingAccount(StatesGroup):
     change_api_hash = State()
     change_phone_number = State()
     code_input = State()
+    deletion_account = State()
 
 
 class AccountSettings(StatesGroup):
@@ -29,5 +30,6 @@ class AccountSettings(StatesGroup):
     preview_mess = State()
     setup_interval = State()
     setup_message = State()
+    remove_mess = State()
     delete_msg_from_settings = State()
 

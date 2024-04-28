@@ -6,14 +6,13 @@ from aiogram.utils.media_group import MediaGroupBuilder
 from loader import dp
 from keyboards import (back_button, cancel_button_2, file_adding, text_adding,
                        accounts_choice, menu_for_account, mailing_sett, action_with_messages,
-                       messages_for_preview, remove_message, messages_for_removing)
+                       messages_for_preview, remove_message, messages_for_removing, ask_deletion)
 from utils.account_model import Account, account_dict
 from .main_menu import send_status_info
 from states import AccountSettings
 
-from aiogram.types import Message, FSInputFile, CallbackQuery
+from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram import F, html
-from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from pyrogram.errors.exceptions.bad_request_400 import UsernameInvalid, UserAlreadyParticipant, InviteHashExpired
 from pyrogram.errors.exceptions.flood_420 import FloodWait
@@ -26,7 +25,7 @@ async def preview_account(msg: Message, account: Account):
     await msg.answer(text=account.get_account_info(), reply_markup=menu_for_account)
 
 
-@dp.message(F.text == 'Подключенные аккаунты')
+@dp.message(F.text == '📋 Подключенные аккаунты')
 async def get_accounts_list(msg: Message):
     """Демонстрация всех подключенных аккаунтов"""
     await msg.answer(text='Выберете аккаунт:', reply_markup=accounts_choice(account_dict))
@@ -45,19 +44,36 @@ async def open_account_settings(callback: CallbackQuery, state: FSMContext):
 async def switch_account_activity(callback: CallbackQuery, state: FSMContext):
     """Переключатель для состояния активности аккаунта"""
     preview_acc: Account = (await state.get_data())['account']
-    preview_acc.change_activity()
-    await preview_account(callback.message, preview_acc)
+
+    try:
+        await preview_acc.change_activity()
+        await preview_account(callback.message, preview_acc)
+    except ValueError:
+        await callback.message.answer('Установите хотя бы одно сообщение для рассылки!')
+        await callback.answer()
+    except IndexError:
+        await callback.message.answer('Установите Интервал для рассылки!')
+        await callback.answer()
+    except ZeroDivisionError:
+        await callback.message.answer('Установите список чатов для рассылки!')
+        await callback.answer()
 
 
 @dp.callback_query(AccountSettings.view_account, F.data == 'put_chats_list')
 async def start_put_chats_list(callback: CallbackQuery, state: FSMContext):
     """Начало добавления чатов на вступление юзер бота"""
-    await state.set_state(AccountSettings.put_chats)
-    await callback.message.delete()
-    await callback.message.answer(text='Введите ссылку на группу:', reply_markup=back_button)
+    preview_acc: Account = (await state.get_data())['account']
+
+    if preview_acc.get_active():
+        await callback.answer()
+        await callback.message.answer('<b>Сначала остановите рассылку❗</b>')
+    else:
+        await state.set_state(AccountSettings.put_chats)
+        await callback.message.delete()
+        await callback.message.answer(text='Введите список ссылок на группы:', reply_markup=back_button)
 
 
-@dp.message(AccountSettings.put_chats, F.text != 'Назад')
+@dp.message(AccountSettings.put_chats, F.text != '◀️ Назад')
 async def put_chats(msg: Message, state: FSMContext):
     """Запуск цикла вступления юзер бота в группы. Конструкция в основном состоит из блоков try except
     По неведомым причинам, вступать в открытые чаты можно только через юзернэйм группы. Отсюда и дополнительная
@@ -78,54 +94,49 @@ async def put_chats(msg: Message, state: FSMContext):
 
     while len(chats_links) > 0:
         for link in chats_links:
+            await asyncio.sleep(10)
             try:
                 await preview_acc.join_to_chat(chat=link)
                 await msg.answer(f'Чат добавлен!\n{link}')
                 chats_links.remove(link)
-                await asyncio.sleep(10)
             except UsernameInvalid:
                 try:
                     await preview_acc.join_to_chat(chat=link.replace('https://t.me/', ''))
                     await msg.answer(f'Чат добавлен!\n{link}')
                     chats_links.remove(link)
-                    await asyncio.sleep(10)
-
                 except UsernameInvalid:
                     await msg.answer(f'Неверная ссылка!\n{link}')
-                    await asyncio.sleep(10)
                 except UserAlreadyParticipant:
                     await msg.answer(f'Юзер бот уже состоит в данном чате!\n{link}')
                     await preview_acc.add_chat_info(chat=link.replace('https://t.me/', ''))
                     chats_links.remove(link)
-                    await asyncio.sleep(10)
                 except InviteHashExpired:
                     await msg.answer(f'Юзер бот заблокирован в данном чате или '
-                                     f'ссылка уже не действительна!\n{link}'
-                                     f'<b>Начат перерыв 10 минут❗</b>')
-                    await asyncio.sleep(610)
-                    await msg.answer('Перерыв окончен, продолжаем!')
+                                     f'ссылка уже не действительна!\n{link}')
                 except FloodWait as exc:
                     await msg.answer(f'❗Телеграм ругается на флуд❗\n'
                                      f'Перерыв {exc.value} секунд')
-                    await asyncio.sleep(5)  # Подождем дополнительно. Прибавить не решился, так как фиг его знает)))
+                    await asyncio.sleep(5)  # Подождем дополнительно. Прибавить не решился, так как фиг его знает
                     await asyncio.sleep(exc.value)
+                except KeyError:
+                    await msg.answer(f'Юзер бот заблокирован в данном чате или '
+                                     f'ссылка уже не действительна!\n{link}')
             except UserAlreadyParticipant:
                 await msg.answer(f'Юзер бот уже состоит в данном чате!\n{link}')
                 await preview_acc.add_chat_info(chat=link)
-                await asyncio.sleep(10)
+                chats_links.remove(link)
             except InviteHashExpired:
                 await msg.answer(f'Юзер бот заблокирован в данном чате или '
-                                 f'ссылка уже не действительна!\n{link}'
-                                 f'<b>Начат перерыв 10 минут❗</b>')
-                await asyncio.sleep(610)
+                                 f'ссылка уже не действительна!\n{link}')
                 await msg.answer('Перерыв окончен, продолжаем!')
             except FloodWait as exc:
                 await msg.answer(f'❗Телеграм ругается на флуд❗\n'
                                  f'Перерыв {exc.value} секунд')
-                await asyncio.sleep(5)  # Подождем дополнительно. Прибавить не решился, так как фиг его знает)))
+                await asyncio.sleep(5)  # Подождем дополнительно. Прибавить не решился, так как фиг его знает
                 await asyncio.sleep(exc.value)
-
-    await msg.answer('<b>Вступление в чаты завершено!</b>')
+    await msg.answer('<b>Вступление в чаты завершено</b>')
+    await preview_account(msg, preview_acc)
+    await state.set_state(AccountSettings.view_account)
 
 
 @dp.callback_query(AccountSettings.view_account, F.data == 'mailing_settings')
@@ -178,8 +189,8 @@ async def setup_interval(callback: CallbackQuery, state: FSMContext):
 async def catch_interval(msg: Message, state: FSMContext):
     """Ловим значение интервала в минутах"""
     preview_acc: Account = (await state.get_data())['account']
-    preview_acc.set_interval(msg.text)
-    await msg.answer(text=f'<b>Установлен интервал {msg.text} мин</b>')
+    preview_acc.set_interval(int(msg.text))
+    await msg.answer(text=f'<b>Установлен интервал {msg.text} мин</b>', reply_markup=back_button)
 
     # И возвращаемся в меню настроек
 
@@ -249,7 +260,7 @@ async def start_adding_message_for_mailing(callback: CallbackQuery, state: FSMCo
     await state.set_state(AccountSettings.msg_title)
 
 
-@dp.message(AccountSettings.msg_title, F.text != 'Отменить')
+@dp.message(AccountSettings.msg_title, F.text != '🚫 Отменить')
 async def set_message_title(msg: Message, state: FSMContext):
     """Ловим название для сообщения и приглашение на ввод основного текста"""
     await state.update_data({'msg_title': msg.text})
@@ -258,37 +269,38 @@ async def set_message_title(msg: Message, state: FSMContext):
                 f'- текст (1024 символа, видеосообщение не может содержать текст) '
                 f'+ файл(ы)(до 10 файлов, если это фото, видео, документы или аудиофайлы)\n'
                 f'- только файл(ы)(до 10 файлов)\n\n'
+                f'‼️<b>Скидывать можно только файлы которые хранятся на ваше компьютере в виде абсолютных путей.'
+                f'Так же, через пробел указать тип файла - photo, video, document, audio.</b>‼️\n\n'
+                f'Можно скинуть список, где каждый файл указан с новой строки!\n'
                 f'Скиньте файл(ы) и/или нажмите кнопку <b>Дальше</b>')
     await msg.answer(text=msg_text, reply_markup=file_adding)
     await state.update_data({'mediafile': []})
     await state.set_state(AccountSettings.msg_files)
 
 
-@dp.message(AccountSettings.msg_files, F.text != 'Дальше', F.text != 'Отменить')
+@dp.message(AccountSettings.msg_files, F.text != 'Дальше ▶️', F.text != '🚫 Отменить')
 async def adding_files(msg: Message, state: FSMContext):
     """Ловим медиафайлы"""
-    # Так как, при скидывании более одного файла, бот воспринимает это сразу как несколько отдельных
+    # Так как, при скидывании более одного файла может быть несколько отдельных
     # сообщений, то будем использовать эту причудливую конструкцию с заранее созданным списком
+    file_list = (await state.get_data())['mediafile']
 
-    file_id_list = (await state.get_data())['mediafile']
+    files = msg.text.split('\n')
+    for file in files:
+        file = file.replace('"', '').split()
+        # если вдруг в пути будет лишний пробел
+        file = [' '.join(file[0:-1]), file[-1]]
+        if file[1] in {'photo', 'video', 'document', 'audio'}:
+            file_list.append(file)
 
-    if msg.photo:
-        file_id_list.append((msg.photo[-1].file_id, 'photo'))
-    elif msg.video:
-        file_id_list.append((msg.video.file_id, 'video'))
-    elif msg.document:
-        file_id_list.append((msg.document.file_id, 'document'))
-    elif msg.video_note:
-        file_id_list = [(msg.video_note.file_id, 'video_note')]
-    elif msg.audio:
-        file_id_list.append((msg.audio.file_id, 'audio'))
-    elif msg.voice:
-        file_id_list = [(msg.voice.file_id, 'voice')]
-
-    await state.update_data({'mediafile': file_id_list})
+            await msg.answer('Файл добавлен. Скиньте еще или нажмите кнопку дальше')
+        else:
+            await msg.answer('Тип файла указан не верно!')
+    else:
+        await state.update_data({'mediafile': file_list})
 
 
-@dp.message(AccountSettings.msg_files, F.text == 'Дальше')
+@dp.message(AccountSettings.msg_files, F.text == 'Дальше ▶️')
 async def check_files(msg: Message, state: FSMContext):
     """Проверяем файлы, которые скинул пользователь. Если все нормально, то предлагаем ввести текст"""
     file_id_list = (await state.get_data())['mediafile']
@@ -298,7 +310,6 @@ async def check_files(msg: Message, state: FSMContext):
         type_set = {t[1] for t in file_id_list}
 
         # Проверяем на однотипность добавленных файлов. Вперемешку могут быть только фото и видео(не видеосообщение)
-
         if len(type_set) == 1:  # значит, что у передаваемых файлов один тип
             await msg.answer(text='Теперь введите текст или нажмите кнопу Готово:', reply_markup=text_adding)
             await state.set_state(AccountSettings.msg_text)
@@ -322,7 +333,7 @@ async def check_files(msg: Message, state: FSMContext):
         await state.update_data({'mediafile': []})
 
 
-@dp.message(AccountSettings.msg_text, F.text != 'Отменить')
+@dp.message(AccountSettings.msg_text, F.text != '🚫 Отменить')
 async def message_text_input(msg: Message, state: FSMContext):
     """Ловим текст сообщения и/или заканчиваем ввод сообщения для рассылки"""
     if '<' in msg.text:
@@ -410,23 +421,22 @@ async def preview_message_and_remove(callback: CallbackQuery, state: FSMContext)
         await callback.message.answer(text=message_self)
 
     else:
-        if message_self[1][0][1] in {'photo', 'video', 'audio', 'document'}:
-            # Так как только эти типы файлов могут быть медиа группой
-            media_group = MediaGroupBuilder(caption=message_self[0])
-            for mediafile in message_self[1]:
-                media_group.add(type=mediafile[1], media=mediafile[0])
 
-            await callback.message.answer_media_group(media=media_group.build())
+        media_group = MediaGroupBuilder(caption=message_self[0])
+        for mediafile in message_self[1]:
+            media_group.add(type=mediafile[1], media=FSInputFile(mediafile[0]))
 
-        else:  # voice, video_note
-            if message_self[1][0][1] == 'voice':
-                await callback.message.answer_voice(voice=message_self[1][0][0],
-                                                    caption=message_self[0], protect_content=True)
-            elif message_self[1][0][1] == 'video_note':
-                await callback.message.answer_video_note(video_note=message_self[1][0][0])
+        await callback.message.answer_media_group(media=media_group.build())
 
 
 @dp.message(AccountSettings.msg_preview, F.text == 'Удалить')
+async def ask_about_deletion(msg: Message, state: FSMContext):
+    """Просим подтвердить удаление"""
+    await msg.answer(text='Вы уверены?', reply_markup=ask_deletion)
+    await state.set_state(AccountSettings.remove_mess)
+
+
+@dp.message(AccountSettings.remove_mess, F.text == 'Да')
 async def remove_message_func(msg: Message, state: FSMContext):
     """Удаляем выбранное сообщения из словаря со всеми сообщениями"""
     all_data = await state.get_data()  # Так просто удобней
@@ -444,7 +454,17 @@ async def remove_message_func(msg: Message, state: FSMContext):
     await state.set_state(AccountSettings.preview_mess)
 
 
-@dp.message(AccountSettings.msg_preview, F.text == 'Назад')
+@dp.message(AccountSettings.remove_mess, F.text == 'Нет')
+async def else_not_delete(msg: Message, state: FSMContext):
+    """Если не удаляем сообщение"""
+    bot_mess_dict = (await state.get_data())['account'].get_messages_dict()
+    await msg.answer(text='Назад к списку сообщений', reply_markup=back_button)
+    await msg.answer(text='Выберете сообщение для просмотра:',
+                     reply_markup=messages_for_preview(bot_mess_dict))
+    await state.set_state(AccountSettings.preview_mess)
+
+
+@dp.message(AccountSettings.msg_preview, F.text == '◀️ Назад')
 async def return_to_mess_list(msg: Message, state: FSMContext):
     """Из просмотра сообщения назад к списку сообщений"""
     bot_mess_dict = (await state.get_data())['account'].get_messages_dict()
@@ -454,21 +474,21 @@ async def return_to_mess_list(msg: Message, state: FSMContext):
     await state.set_state(AccountSettings.preview_mess)
 
 
-@dp.message(AccountSettings.setup_interval, F.text == 'Отменить')
-@dp.message(AccountSettings.setup_message, F.text.in_({'Отменить', 'Назад'}))
-@dp.message(AccountSettings.delete_msg_from_settings, F.text.in_({'Отменить', 'Назад'}))
+@dp.message(AccountSettings.setup_interval, F.text == '🚫 Отменить')
+@dp.message(AccountSettings.setup_message, F.text.in_({'🚫 Отменить', '◀️ Назад'}))
+@dp.message(AccountSettings.delete_msg_from_settings, F.text.in_({'🚫 Отменить', '◀️ Назад'}))
 async def back_to_settings_menu(msg: Message, state: FSMContext):
     """Назад в меню настроек рассылки"""
     await settings_for_mailing_menu(msg=msg, state=state)
 
 
-@dp.message(AccountSettings.preview_mess, F.text.in_({'Отменить', 'Назад'}))
-@dp.message(AccountSettings.choice_msg_action, F.text.in_({'Отменить', 'Назад'}))
-@dp.message(AccountSettings.msg_files, F.text.in_({'Отменить', 'Назад'}))
-@dp.message(AccountSettings.msg_text, F.text.in_({'Отменить', 'Назад'}))
-@dp.message(AccountSettings.msg_title, F.text.in_({'Отменить', 'Назад'}))
-@dp.message(AccountSettings.mailing_settings, F.text.in_({'Отменить', 'Назад'}))
-@dp.message(AccountSettings.put_chats, F.text.in_({'Отменить', 'Назад'}))
+@dp.message(AccountSettings.preview_mess, F.text.in_({'🚫 Отменить', '◀️ Назад'}))
+@dp.message(AccountSettings.choice_msg_action, F.text.in_({'🚫 Отменить', '◀️ Назад'}))
+@dp.message(AccountSettings.msg_files, F.text.in_({'🚫 Отменить', '◀️ Назад'}))
+@dp.message(AccountSettings.msg_text, F.text.in_({'🚫 Отменить', '◀️ Назад'}))
+@dp.message(AccountSettings.msg_title, F.text.in_({'🚫 Отменить', '◀️ Назад'}))
+@dp.message(AccountSettings.mailing_settings, F.text.in_({'🚫 Отменить', '◀️ Назад'}))
+@dp.message(AccountSettings.put_chats, F.text.in_({'🚫 Отменить', '◀️ Назад'}))
 async def back_to_account_preview(msg: Message, state: FSMContext):
     """Возвращение к просмотру юзер бота"""
     preview_acc: Account = (await state.get_data())['account']
@@ -476,14 +496,14 @@ async def back_to_account_preview(msg: Message, state: FSMContext):
     await state.set_state(AccountSettings.view_account)
 
 
-@dp.message(AccountSettings.view_account, F.text.in_({'Отменить', 'Назад'}))
+@dp.message(AccountSettings.view_account, F.text.in_({'🚫 Отменить', '◀️ Назад'}))
 async def back_to_account_list(msg: Message, state: FSMContext):
     """Возврат в главное меню"""
     await state.clear()
     await get_accounts_list(msg)
 
 
-@dp.message(F.text.in_({'Отменить', 'Назад'}))
+@dp.message(F.text.in_({'🚫 Отменить', '◀️ Назад'}))
 async def back_to_main_menu(msg: Message, state: FSMContext):
     """Возврат в главное меню"""
     await state.clear()

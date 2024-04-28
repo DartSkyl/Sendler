@@ -21,22 +21,22 @@ def accounts_choice(acc_list: dict) -> InlineKeyboardMarkup:
 
 
 menu_for_account = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Вкл/Выкл', callback_data='switch')],
-    [InlineKeyboardButton(text='Обновить список чатов', callback_data='put_chats_list')],
-    [InlineKeyboardButton(text='Настройки рассылки', callback_data='mailing_settings')],
-    [InlineKeyboardButton(text='Сообщения для рассылки', callback_data='msg_for_mailing')]
+    [InlineKeyboardButton(text='⏯️ Вкл/Выкл', callback_data='switch')],
+    [InlineKeyboardButton(text='📝 Обновить список чатов', callback_data='put_chats_list')],
+    [InlineKeyboardButton(text='⚙️ Настройки рассылки', callback_data='mailing_settings')],
+    [InlineKeyboardButton(text='📨 Сообщения для рассылки', callback_data='msg_for_mailing')]
 ])
 
 action_with_messages = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Добавить сообщение', callback_data='add_msg')],
-    [InlineKeyboardButton(text='Посмотреть/Удалить сообщение', callback_data='preview_msg')]
+    [InlineKeyboardButton(text='✒️ Добавить сообщение', callback_data='add_msg')],
+    [InlineKeyboardButton(text='📋 Посмотреть/Удалить сообщение', callback_data='preview_msg')]
 ])
 
 
 mailing_sett = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='Установить интервал рассылки', callback_data='interval')],
-    [InlineKeyboardButton(text='Добавить сообщение', callback_data='add_mess')],
-    [InlineKeyboardButton(text='Удалить сообщение', callback_data='del_mess')]
+    [InlineKeyboardButton(text='⏲️ Установить интервал рассылки', callback_data='interval')],
+    [InlineKeyboardButton(text='📨 Добавить сообщение', callback_data='add_mess')],
+    [InlineKeyboardButton(text='❌ Удалить сообщение', callback_data='del_mess')]
 ])
 
 

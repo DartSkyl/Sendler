@@ -1,5 +1,5 @@
 from loader import dp
-from keyboards import main_menu, cancel_button, check_data_keyboard
+from keyboards import main_menu, cancel_button, check_data_keyboard, accounts_choice, ask_deletion
 from states import AddingAccount
 from utils.account_model import Account, account_dict
 
@@ -32,14 +32,14 @@ async def start_func(msg: Message):
     await send_status_info(msg=msg)
 
 
-@dp.message(F.text == 'Добавить аккаунт')
+@dp.message(F.text == '➕ Добавить аккаунт')
 async def start_adding_account(msg: Message, state: FSMContext):
     """Здесь пользователь начинает добавлять новый аккаунт и задается соответствующий стэйт"""
     await state.set_state(AddingAccount.name_input)
     await msg.answer(text='Введите название для нового аккаунт:', reply_markup=cancel_button)
 
 
-@dp.message(AddingAccount.name_input, F.text != 'Отмена')
+@dp.message(AddingAccount.name_input, F.text != '🚫 Отмена')
 async def api_id_input(msg: Message, state: FSMContext):
     """Здесь мы ловим название аккаунта и предлагаем ввести api_id"""
     if '<' not in msg.text:
@@ -146,13 +146,13 @@ async def auth_code_input(msg: Message, state: FSMContext):
     await state.clear()
 
 
-@dp.message(AddingAccount.code_input, F.text != 'Отмена')
+@dp.message(AddingAccount.code_input, F.text != '🚫 Отмена')
 async def code_error_input(msg: Message):
     """Некорректный ввод кода"""
     await msg.answer(text='Код содержит пять цифр! Повторите ввод:')
 
 
-@dp.message(AddingAccount.change_name, F.text != 'Отмена')
+@dp.message(AddingAccount.change_name, F.text != '🚫 Отмена')
 async def change_name(msg: Message, state: FSMContext):
     """Здесь мы пользователь меняет имя аккаунта"""
     await state.update_data({'name': msg.text})
@@ -168,14 +168,14 @@ async def change_api_id(msg: Message, state: FSMContext):
     await state.set_state(AddingAccount.check_data)
 
 
-@dp.message(AddingAccount.change_api_id, F.text != 'Отмена')
-@dp.message(AddingAccount.api_id_input, F.text != 'Отмена')
+@dp.message(AddingAccount.change_api_id, F.text != '🚫 Отмена')
+@dp.message(AddingAccount.api_id_input, F.text != '🚫 Отмена')
 async def api_error_input(msg: Message):
     """При не правильном вводе api_id"""
     await msg.answer(text='<b>api_id</b> состоит только из цифр! Повторите ввод')
 
 
-@dp.message(AddingAccount.change_api_hash, F.text != 'Отмена')
+@dp.message(AddingAccount.change_api_hash, F.text != '🚫 Отмена')
 async def change_api_hash(msg: Message, state: FSMContext):
     """Здесь мы пользователь меняет api_hash"""
     await state.update_data({'api_hash': msg.text})
@@ -191,15 +191,47 @@ async def change_phone_number(msg: Message, state: FSMContext):
     await state.set_state(AddingAccount.check_data)
 
 
-@dp.message(AddingAccount.change_phone_number, F.text != 'Отмена')
-@dp.message(AddingAccount.phone_number_input, F.text != 'Отмена')
+@dp.message(AddingAccount.change_phone_number, F.text != '🚫 Отмена')
+@dp.message(AddingAccount.phone_number_input, F.text != '🚫 Отмена')
 async def phone_nuber_error_input(msg: Message):
     """При не правильном вводе телефонного номера"""
     await msg.answer(text='<b>Телефонный номер</b> должен быть в международном формате!\n'
                           'Пример +79221110500\nПовторите ввод!')
 
 
-@dp.message(F.text == 'Отмена')
+@dp.message(F.text == '❌ Удалить аккаунт')
+async def start_remove_account(msg: Message, state: FSMContext):
+    """Начало удаления аккаунта"""
+    await msg.answer(text='Выберете аккаунт для удаления:', reply_markup=accounts_choice(account_dict))
+    await state.set_state(AddingAccount.deletion_account)
+
+
+@dp.callback_query(AddingAccount.deletion_account, F.data.startswith('ac_'))
+async def ask_about_account_deletion(callback: CallbackQuery, state: FSMContext):
+    """Спрашиваем подтверждение на удаление"""
+    removing_acc: Account = account_dict[callback.data.replace('ac_', '')]
+    await state.set_data({'account': removing_acc})
+    await callback.message.answer(text='Вы уверены?', reply_markup=ask_deletion)
+
+
+@dp.message(AddingAccount.deletion_account, F.text == 'Да')
+async def remove_account(msg: Message, state: FSMContext):
+    """Удаляем выбранный аккаунт"""
+    removing_acc: Account = (await state.get_data())['account']
+    await removing_acc.log_out_account()
+    await msg.answer('Аккаунт удален!')
+    await state.clear()
+    await send_status_info(msg)
+
+
+@dp.message(AddingAccount.deletion_account, F.text == 'Нет')
+async def not_remove_account(msg: Message, state: FSMContext):
+    """Не удаляем выбранный аккаунт"""
+    await state.clear()
+    await send_status_info(msg)
+
+
+@dp.message(F.text == '🚫 Отмена')
 async def cancel_function(msg: Message, state: FSMContext):
     """Функция отмены"""
     await state.clear()

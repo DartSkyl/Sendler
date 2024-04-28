@@ -9,9 +9,9 @@ else:
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
-# logging.basicConfig(
-#     filename='bot.log',
-#     filemode='a',
-#     format="%(asctime)s %(levelname)s %(message)s"
-# )
-# logging.getLogger().setLevel(logging.ERROR)
+logging.basicConfig(
+    filename='bot.log',
+    filemode='a',
+    format="%(asctime)s %(levelname)s %(message)s"
+)
+logging.getLogger().setLevel(logging.ERROR)
