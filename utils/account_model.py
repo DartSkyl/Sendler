@@ -192,9 +192,12 @@ class Account:
 
                 else:
                     await self._client.send_message(chat_id=chat_id, text=message_for_mailing)
-            except ChannelPrivate or PeerIdInvalid:
+            except ChannelPrivate:
                 # Если юзер бота забанят во время рассылки, то сохраним этот чат до конца рассылки,
                 # а потом просто удалим этот чат из словаря
+                chats_banned.append(chat_url)
+
+            except PeerIdInvalid:
                 chats_banned.append(chat_url)
 
             except FloodWait as e:

@@ -14,7 +14,8 @@ from states import AccountSettings
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram import F, html
 from aiogram.fsm.context import FSMContext
-from pyrogram.errors.exceptions.bad_request_400 import UsernameInvalid, UserAlreadyParticipant, InviteHashExpired
+from pyrogram.errors.exceptions.bad_request_400 import (UsernameInvalid, UserAlreadyParticipant,
+                                                        InviteHashExpired, UsernameNotOccupied)
 from pyrogram.errors.exceptions.flood_420 import FloodWait
 
 
@@ -94,7 +95,6 @@ async def put_chats(msg: Message, state: FSMContext):
 
     while len(chats_links) > 0:
         for link in chats_links:
-            await asyncio.sleep(10)
             try:
                 await preview_acc.join_to_chat(chat=link)
                 await msg.answer(f'Чат добавлен!\n{link}')
@@ -106,6 +106,10 @@ async def put_chats(msg: Message, state: FSMContext):
                     chats_links.remove(link)
                 except UsernameInvalid:
                     await msg.answer(f'Неверная ссылка!\n{link}')
+                    chats_links.remove(link)
+                except UsernameNotOccupied:
+                    await msg.answer(f'Неверная ссылка!\n{link}')
+                    chats_links.remove(link)
                 except UserAlreadyParticipant:
                     await msg.answer(f'Юзер бот уже состоит в данном чате!\n{link}')
                     await preview_acc.add_chat_info(chat=link.replace('https://t.me/', ''))
@@ -113,6 +117,7 @@ async def put_chats(msg: Message, state: FSMContext):
                 except InviteHashExpired:
                     await msg.answer(f'Юзер бот заблокирован в данном чате или '
                                      f'ссылка уже не действительна!\n{link}')
+                    chats_links.remove(link)
                 except FloodWait as exc:
                     await msg.answer(f'❗Телеграм ругается на флуд❗\n'
                                      f'Перерыв {exc.value} секунд')
@@ -121,6 +126,7 @@ async def put_chats(msg: Message, state: FSMContext):
                 except KeyError:
                     await msg.answer(f'Юзер бот заблокирован в данном чате или '
                                      f'ссылка уже не действительна!\n{link}')
+                    chats_links.remove(link)
             except UserAlreadyParticipant:
                 await msg.answer(f'Юзер бот уже состоит в данном чате!\n{link}')
                 await preview_acc.add_chat_info(chat=link)
@@ -128,13 +134,16 @@ async def put_chats(msg: Message, state: FSMContext):
             except InviteHashExpired:
                 await msg.answer(f'Юзер бот заблокирован в данном чате или '
                                  f'ссылка уже не действительна!\n{link}')
-                await msg.answer('Перерыв окончен, продолжаем!')
+                chats_links.remove(link)
+            except UsernameNotOccupied:
+                await msg.answer(f'Неверная ссылка!\n{link}')
+                chats_links.remove(link)
             except FloodWait as exc:
                 await msg.answer(f'❗Телеграм ругается на флуд❗\n'
                                  f'Перерыв {exc.value} секунд')
                 await asyncio.sleep(5)  # Подождем дополнительно. Прибавить не решился, так как фиг его знает
                 await asyncio.sleep(exc.value)
-    await msg.answer('<b>Вступление в чаты завершено</b>')
+    await msg.answer('<b>Добавление чатов завершено</b>')
     await preview_account(msg, preview_acc)
     await state.set_state(AccountSettings.view_account)
 
